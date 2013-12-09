@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="ASCII"?>
+<sy:switchyard xmlns:bean="urn:switchyard-component-bean:config:1.1" xmlns:jpa="urn:switchyard-component-camel-jpa:config:1.1" xmlns:resteasy="urn:switchyard-component-resteasy:config:1.1" xmlns:sca="http://docs.oasis-open.org/ns/opencsa/sca/200912" xmlns:sql="urn:switchyard-component-camel-sql:config:1.1" xmlns:sy="urn:switchyard-config:switchyard:1.1" name="rental-class-integration" targetNamespace="urn:gov.raleighnc.switchyard.integration:rental-class-integration:1.0">
+  <sca:composite name="rental-class-integration" targetNamespace="urn:gov.raleighnc.switchyard.integration:rental-class-integration:1.0">
+    <sca:component name="RentalServiceBean">
+      <bean:implementation.bean class="gov.raleighnc.switchyard.integration.service.classdb.rental.RentalServiceBean"/>
+      <sca:service name="RentalService">
+        <sca:interface.java interface="gov.raleighnc.switchyard.integration.service.classdb.rental.RentalService"/>
+      </sca:service>
+      <sca:reference name="RentalCwRestInterface">
+        <sca:interface.java interface="gov.raleighnc.switchyard.integration.service.classdb.rental.RentalCwRestInterface"/>
+      </sca:reference>
+      <sca:reference name="RentalCwJpaInterface">
+        <sca:interface.java interface="gov.raleighnc.switchyard.integration.service.classdb.rental.RentalCwJpaInterface"/>
+      </sca:reference>
+      <sca:reference name="RentalCwSqlInterface">
+        <sca:interface.java interface="gov.raleighnc.switchyard.integration.service.classdb.rental.RentalCwSqlInterface"/>
+      </sca:reference>
+      <sca:property value="Chad" name="supervisor"/>
+      <sca:property value="Charles" name="requestedBy"/>
+      <sca:property value="Jim" name="initiatedBy"/>
+      <sca:property value="03" name="priority"/>
+      <sca:property value="4" name="numDaysBefore"/>
+      <sca:property value="Rental" name="woCategory"/>
+      <sca:property value="Mike" name="submitTo"/>
+      <sca:property value="OPEN" name="status"/>
+      <sca:property value="2" name="woTemplateId"/>
+    </sca:component>
+    <sca:service name="RentalService" promote="RentalServiceBean/RentalService">
+      <sca:interface.java interface="gov.raleighnc.switchyard.integration.service.classdb.rental.RentalService"/>
+      <sql:binding.sql name="RentalPolling" initialDelay="30000" period="300s">
+        <sy:operationSelector operationName="createWorkOrder"/>
+        <sql:query>select mb.booking_id 'Maintenance Booking', b.start_date_time 'Maintenance Start', b.end_date_time 'Maintenance End', mb.related_booking_id 'Related Booking', mb.related_booking_type_id 'Related Booking Type', b.reference 'Related Booking Reference', r.rental_id 'Rental Contract Number', r.event_name 'Rental Title',  ISNULL(r.event_description, '') 'Rental Description' from maint_booking as mb INNER JOIN rental_booking as rb ON rb.booking_id = mb.related_booking_id INNER JOIN booking as b ON mb.booking_id = b.booking_id INNER JOIN rental as r on r.rental_id = b.reference where b.facility_id in (select facility_id from facility where facility_type_id in (26, 39, 48)) and b.start_date_time > GETDATE()</sql:query>
+        <sql:dataSourceRef>java:jboss/datasources/Trainer70DS</sql:dataSourceRef>
+      </sql:binding.sql>
+    </sca:service>
+    <sca:reference name="RentalCwRestInterface" multiplicity="0..1" promote="RentalServiceBean/RentalCwRestInterface">
+      <sca:interface.java interface="gov.raleighnc.switchyard.integration.service.classdb.rental.RentalCwRestInterface"/>
+      <resteasy:binding.rest name="CWIntegrationRestServices">
+        <resteasy:interfaces>gov.raleighnc.switchyard.integration.service.classdb.rental.RentalCwRestInterfaceJaxRs</resteasy:interfaces>
+        <resteasy:address>http://localhost:8080/switchyard-cw/</resteasy:address>
+      </resteasy:binding.rest>
+    </sca:reference>
+    <sca:reference name="RentalCwJpaInterface" multiplicity="0..1" promote="RentalServiceBean/RentalCwJpaInterface">
+      <sca:interface.java interface="gov.raleighnc.switchyard.integration.service.classdb.rental.RentalCwJpaInterface"/>
+      <jpa:binding.jpa name="RentalJpaCityworks">
+        <jpa:entityClassName>gov.raleighnc.switchyard.integration.domain.classdb.booking.BookingWorkOrder</jpa:entityClassName>
+        <jpa:persistenceUnit>RentalJpaCityworks</jpa:persistenceUnit>
+        <jpa:transactionManager>#jtaTransactionManager</jpa:transactionManager>
+        <jpa:produce/>
+      </jpa:binding.jpa>
+    </sca:reference>
+    <sca:reference name="RentalCwSqlInterface" multiplicity="0..1" promote="RentalServiceBean/RentalCwSqlInterface">
+      <sca:interface.java interface="gov.raleighnc.switchyard.integration.service.classdb.rental.RentalCwSqlInterface"/>
+      <sql:binding.sql name="CheckBookingWOCreation">
+        <sql:query>select * from BOOKING_WO_MAPPING where BOOKINGID = #</sql:query>
+        <sql:dataSourceRef>java:jboss/datasources/CityworksDS</sql:dataSourceRef>
+      </sql:binding.sql>
+    </sca:reference>
+  </sca:composite>
+</sy:switchyard>
